@@ -15,57 +15,44 @@ class orderController extends Controller
 {
     public function store(Request $request)
     {
-        // validasi input
+       // 1. Validasi input
         $validate = Validator::make($request->all(), [
             'items' => 'required|array',
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|integer|min:1',
         ]);
-        // Pengkondisian hasil validasi
-        if($validate->fails()){
+
+        if ($validate->fails()) {
             return response()->json([
                 'success' => false,
-                'message' => "validasi gagal,Data Tidak sesuai",
+                'message' => "validasi gagal, Data Tidak sesuai",
                 'errors' => $validate->errors()
             ], 422);
         }
 
-        // Mengambil data produk dan stock
         $item = $request->items[0];
         $productId = $item['product_id'];
         $quantityToBuy = $item['quantity'];
-        $redisKey = "product:{$productId}:stock";
-
-
-        // mengecek apakah key stok sudak ada di redis atau belum
-        if (!Redis::exists($redisKey)) {
-                $product = Product::find($productId);
-                Redis::set($redisKey, $product->stock);
-            }
-        $remainingStock = Redis::decrby($redisKey, $quantityToBuy);
-
-        if ($remainingStock < 0) {
-            Redis::incrby($redisKey, $quantityToBuy);
-            return response()->json([
-                'success' => false,
-                'message' => 'Maaf, stok produk sudah habis atau tidak mencukupi!'
-            ], 400);
-        }
 
         try {
+            // 2. Menjalankan Transaksi Database dengan Row-Level Locking
             $order = DB::transaction(function () use ($productId, $quantityToBuy) {
-                $product = Product::find($productId);
                 
-                // Sinkronisasi stok di MySQL agar tetap akurat dengan Redis
+                $product = Product::where('id', $productId)->lockForUpdate()->first();
+
+                // 3. pengecekan stok
+                if ($product->stock < $quantityToBuy) {
+                    throw new \Exception('Stok habis', 400);
+                }
                 $product->decrement('stock', $quantityToBuy);
 
-                // Buat Nota Utama
+                // 5. Buat Nota Utama
                 $order = Order::create([
                     'order_number' => 'ORD-' . strtoupper(Str::random(10)),
                     'total_price' => $product->price * $quantityToBuy,
                 ]);
 
-                // Buat Detail Barang
+                // 6. Buat Detail Barang
                 $order->items()->create([
                     'product_id' => $product->id,
                     'quantity' => $quantityToBuy,
@@ -82,13 +69,17 @@ class orderController extends Controller
             ], 201);
 
         } catch (\Exception $e) {
-            // Jika database MySQL bermasalah, kembalikan stok Redis
-            Redis::incrby($redisKey, $quantityToBuy);
+            // Jika Exception dipicu karena stok habis (Code 400)
+            if ($e->getCode() === 400) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Maaf, stok produk sudah habis atau tidak mencukupi!'
+                ], 400);
+            }
             return response()->json([
                 'success' => false,
                 'message' => 'Terjadi kesalahan sistem, silakan coba lagi.'
             ], 500);
         }
-            
     }
 }
