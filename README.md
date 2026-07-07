@@ -1,6 +1,6 @@
 ## 📑 Dokumentasi API Endpoint
 
-### 1. Create New Order (Proses Pesanan Flash Sale)
+###Online Store API
 Endpoint ini digunakan untuk mengirim pesanan baru dan sudah dilengkapi sistem anti-race condition.
 
 * **URL:** `/orders`
