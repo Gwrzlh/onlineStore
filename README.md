@@ -3,7 +3,7 @@
 ### 1. Create New Order (Proses Pesanan Flash Sale)
 Endpoint ini digunakan untuk mengirim pesanan baru dan sudah dilengkapi sistem anti-race condition.
 
-* **URL:** `/api/orders`
+* **URL:** `/orders`
 * **Method:** `POST`
 * **Headers:** 
   ```http
