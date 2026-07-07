@@ -30,6 +30,7 @@ test('it can handle race condition during flash sale', function () {
     $responses = [];
 
     for ($i = 0; $i < $totalRequests; $i++) {
+        // end point post
         $responses[] = postJson('/orders', $payload);
     }
 

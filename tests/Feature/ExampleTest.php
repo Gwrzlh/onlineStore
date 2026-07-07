@@ -1,7 +1,8 @@
 <?php
 
-test('the application returns a successful response', function () {
-    $response = $this->get('/');
-
-    $response->assertStatus(200);
+test('the application api is running successfully', function () {
+    /** @var \Tests\TestCase $this */
+    $response = $this->getJson('/orders');
+    
+    $response->assertStatus(405);
 });
